@@ -98,6 +98,36 @@ class DiscourseAlgolia::PostIndexer < DiscourseAlgolia::Indexer
       }
     end
 
+    # Limit the complete serialized record, not just its content.
+    algolia_record_budget = 9_500
+
+    if object.to_json.bytesize > algolia_record_budget
+      full_content = object[:content]
+      object[:content] = ""
+
+      if object.to_json.bytesize > algolia_record_budget
+        raise "Algolia metadata alone exceeds the record budget for post #{post.id}"
+      end
+
+      low = 0
+      high = full_content.length
+      best_content = ""
+
+      while low <= high
+        midpoint = (low + high) / 2
+        object[:content] = full_content[0, midpoint]
+
+        if object.to_json.bytesize <= algolia_record_budget
+          best_content = object[:content]
+          low = midpoint + 1
+        else
+          high = midpoint - 1
+        end
+      end
+
+      object[:content] = best_content
+    end
+
     object
   end
 
